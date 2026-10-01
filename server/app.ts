@@ -175,8 +175,12 @@ export async function buildApp(options: AppOptions) {
   app.get('/api/cases/:id/files/:fileId', async (request, reply: FastifyReply) => {
     const user = requireUser(request)
     const file = svc.fileFor(ctx, user, id(request), (request.params as { fileId: string }).fileId)
+    if (!existsSync(file.path)) throw new HttpError(404, 'file_missing', 'This file is no longer stored on the server. Ask the reporter to add it again.')
+    // ?download=1 saves the file; otherwise it opens in the browser. filename* keeps non-English names intact.
+    const disposition = (request.query as { download?: string }).download ? 'attachment' : 'inline'
+    const ascii = file.name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
     reply.header('Content-Type', file.type).header('Cache-Control', 'private, no-store').header('X-Content-Type-Options', 'nosniff')
-      .header('Content-Disposition', `inline; filename="${encodeURIComponent(file.name)}"`)
+      .header('Content-Disposition', `${disposition}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.name)}`)
     return reply.send(createReadStream(file.path))
   })
 

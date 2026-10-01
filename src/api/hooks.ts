@@ -69,14 +69,15 @@ export function useCaseViews(userId?: string) {
   )
 }
 
-export function useMissions(userId?: string) {
+/** Pass a refresh key that changes (e.g. after an action) to refetch. */
+export function useMissions(userId?: string, refreshKey?: string) {
   return useResource<MissionView[]>(
     async () => {
       await ensureSession()
       return api.missions()
     },
     [],
-    [userId],
+    [userId, refreshKey],
   )
 }
 

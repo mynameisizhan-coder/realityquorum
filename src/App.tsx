@@ -38,7 +38,8 @@ import { Dialog } from './components/Dialog'
 import { locations, getLocation } from './data/campus'
 import { exampleCases as preparedExamples } from './data/examples'
 import { loadCase, loadCases, loadDemoCases, saveCase } from './api/caseStore'
-import { useSession } from './api/hooks'
+import { useMissions, useSession } from './api/hooks'
+import { ApiRequestError } from './api/client'
 import type { CaseRecord, Intake, Page } from './types'
 
 const navigation = [
@@ -70,6 +71,11 @@ export default function App() {
   const [showExamples, setShowExamples] = useState(false)
   const [caseQuery, setCaseQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
+  // Tasks the signed-in account can accept or still has to finish, shown as a count in the navigation.
+  const { data: missionList } = useMissions(user?.id, `${dataVersion}-${page}`)
+  const actionableMissions = missionList.filter(
+    (m) => (m.status === 'Open' && m.eligibility.ok) || (m.assignedToMe && m.status === 'Accepted'),
+  ).length
   useEffect(() => {
     let active = true
     Promise.all([loadCases(), loadDemoCases()])
@@ -113,6 +119,32 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
   const currentCase = [...cases, ...exampleCases].find((record) => record.id === openedId)
+  // Always show the server's current version of an opened case. The demo server can restart and
+  // clear its data, so a case still listed here may no longer exist.
+  const openedOnServer = !!currentCase?.view
+  useEffect(() => {
+    if (!openedId || !openedOnServer) return
+    let active = true
+    loadCase(openedId)
+      .then((fresh) => {
+        if (!active) return
+        const replace = (list: CaseRecord[]) =>
+          list.map((value) => (value.id === fresh.id ? fresh : value))
+        setCases(replace)
+        setExampleCases(replace)
+      })
+      .catch((e) => {
+        if (!active || !(e instanceof ApiRequestError) || e.status !== 404) return
+        setCases((list) => list.filter((value) => value.id !== openedId))
+        setOpenedId(null)
+        setToast(
+          'This case is no longer on the server. The demo server clears its data when it restarts.',
+        )
+      })
+    return () => {
+      active = false
+    }
+  }, [openedId, openedOnServer])
   const location = selected ? getLocation(selected) : null
   const go = (next: Page) => {
     setPage(next)
@@ -207,6 +239,9 @@ export default function App() {
               <item.icon size={18} strokeWidth={1.7} />
               <span>{item.label}</span>
               {item.id === 'cases' && cases.length > 0 && <b>{cases.length}</b>}
+              {item.id === 'missions' && actionableMissions > 0 && (
+                <b aria-label={`${actionableMissions} tasks for you`}>{actionableMissions}</b>
+              )}
               {page === item.id && <span className="nav-active-dot" />}
             </button>
           ))}
@@ -386,7 +421,9 @@ export default function App() {
                         <img src={location.photo} alt={`Campus reference for ${location.name}`} />
                         <span>
                           {location.photoLabel ??
-                            (location.provisional ? 'GENERAL CAMPUS REFERENCE' : 'SELECTED LOCATION')}
+                            (location.provisional
+                              ? 'GENERAL CAMPUS REFERENCE'
+                              : 'SELECTED LOCATION')}
                         </span>
                       </div>
                       <div className="location-detail">
@@ -617,7 +654,9 @@ export default function App() {
                   <h1>Help bring the picture into focus.</h1>
                   <p>Safe, specific requests that help establish what happened.</p>
                 </div>
-                <span className="demo-pill">{user ? `Signed in as ${user.alias}` : 'Live missions'}</span>
+                <span className="demo-pill">
+                  {user ? `Signed in as ${user.alias}` : 'Live missions'}
+                </span>
               </div>
               <div className="mission-intro">
                 <span>
@@ -658,32 +697,32 @@ export default function App() {
               <PublicUpdatesFeed
                 refreshKey={String(dataVersion)}
                 fallback={
-                <div className="public-empty">
-                  <span className="public-symbol">
-                    <Globe2 size={42} strokeWidth={1} />
-                  </span>
-                  <h2>No live public updates yet.</h2>
-                  <p>
-                    New reports begin privately. A public update requires supported findings, privacy
-                    review and operator approval.
-                  </p>
-                  <div className="public-example">
-                    <span className="demo-pill">Example wording after verified closure</span>
-                    <h3>A reported exit obstruction has been cleared.</h3>
-                    <p>
-                      “The reported passage was checked after the obstruction was removed. The
-                      circulating claim of an official closure was contradicted by the authorized
-                      issuer.”
-                    </p>
-                    <span>
-                      <CheckCircle2 size={15} /> Condition checked <span>·</span> No identities
-                      published
+                  <div className="public-empty">
+                    <span className="public-symbol">
+                      <Globe2 size={42} strokeWidth={1} />
                     </span>
+                    <h2>No live public updates yet.</h2>
+                    <p>
+                      New reports begin privately. A public update requires supported findings,
+                      privacy review and operator approval.
+                    </p>
+                    <div className="public-example">
+                      <span className="demo-pill">Example wording after verified closure</span>
+                      <h3>A reported exit obstruction has been cleared.</h3>
+                      <p>
+                        “The reported passage was checked after the obstruction was removed. The
+                        circulating claim of an official closure was contradicted by the authorized
+                        issuer.”
+                      </p>
+                      <span>
+                        <CheckCircle2 size={15} /> Condition checked <span>·</span> No identities
+                        published
+                      </span>
+                    </div>
+                    <button className="text-button" onClick={() => setOpenedId(exampleCases[0].id)}>
+                      Explore the example case <ArrowUpRight size={15} />
+                    </button>
                   </div>
-                  <button className="text-button" onClick={() => setOpenedId(exampleCases[0].id)}>
-                    Explore the example case <ArrowUpRight size={15} />
-                  </button>
-                </div>
                 }
               />
             </>

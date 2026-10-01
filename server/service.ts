@@ -102,15 +102,26 @@ async function observe(ctx: Ctx, kind: EvidenceKind, note: string, files: Incomi
   return parsed.success ? parsed.data : []
 }
 
-/** Gemini picks from the pack. Anything not in the pack is dropped, never invented. */
+/**
+ * Gemini picks from the pack; anything not in the pack is dropped, never invented. Gemini may trim
+ * missions within a role, but it cannot leave a role with no task, and the alternative-explanation
+ * check is always included.
+ */
 async function selectMissions(ctx: Ctx, pack: PolicyPack, record: Case): Promise<string[]> {
+  const attributionOnly = new Set(pack.predicates.filter(p => p.appliesTo === 'message').map(p => p.id))
+  const candidates = pack.missions.filter(m => (m.phase ?? 'evidence') === 'evidence')
+    // Issuer checks only make sense when there is a message to attribute.
+    .filter(m => record.route === 'message' || !m.targets.every(t => attributionOnly.has(t)))
+  const allowed = new Set(candidates.map(m => m.id))
   const parsed = MissionSelectionSchema.safeParse(await ctx.gemini.selectMissions(pack, record))
-  const allowed = new Set(pack.missions.filter(m => (m.phase ?? 'evidence') === 'evidence').map(m => m.id))
-  const chosen = parsed.success ? parsed.data.map(s => s.templateId).filter(id => allowed.has(id)) : []
-  if (!chosen.length) return [...allowed]
-  // Every case must test an alternative explanation, whatever Gemini picked.
-  const disconfirmation = pack.missions.filter(m => m.isDisconfirmation && allowed.has(m.id)).map(m => m.id)
-  return [...new Set([...chosen, ...disconfirmation])]
+  const chosen = new Set(parsed.success ? parsed.data.map(s => s.templateId).filter(id => allowed.has(id)) : [])
+  if (!chosen.size) return candidates.map(m => m.id)
+  for (const m of candidates) if (m.isDisconfirmation) chosen.add(m.id)
+  for (const m of candidates) {
+    const roleCovered = m.allowedRoles.some(role => candidates.some(c => chosen.has(c.id) && c.allowedRoles.includes(role)))
+    if (!roleCovered) chosen.add(m.id)
+  }
+  return candidates.filter(m => chosen.has(m.id)).map(m => m.id)
 }
 
 function instantiateMissions(ctx: Ctx, record: Case, templateIds: string[]): Mission[] {
@@ -287,6 +298,8 @@ export function listMissions(ctx: Ctx, user: User): MissionView[] {
     if (!record || m.status === 'Cancelled' || record.status === 'Closure verified') return false
     if (m.assigneeId === user.id) return true
     if (user.role === 'operator') return true
+    // A mission someone else has taken is no longer available to anyone else.
+    if (m.status !== 'Open') return false
     if (user.role === 'student') return record.reporterId === user.id && m.allowedRoles.includes('student')
     return m.allowedRoles.includes(user.role) && (!can(user, 'case.viewDepartment') || user.department === record.department)
   }).map(m => missionView(user, m, cases.get(m.caseId)!))

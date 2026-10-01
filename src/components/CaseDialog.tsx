@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Clock3,
   Download,
+  Eye,
   FileImage,
   LockKeyhole,
   MapPin,
@@ -29,7 +30,12 @@ const time = (at: string) =>
   })
 function AttachmentItem({ attachment }: { attachment: Attachment }) {
   const [url, setUrl] = useState('')
+  const [broken, setBroken] = useState(false)
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   useEffect(() => {
+    setBroken(false)
+    setError('')
     if (attachment.url) {
       setUrl(attachment.url)
       return
@@ -38,23 +44,88 @@ function AttachmentItem({ attachment }: { attachment: Attachment }) {
     setUrl(value)
     return () => URL.revokeObjectURL(value)
   }, [attachment.blob, attachment.url])
+
+  // Fetch first so a missing file or lost session shows a clear message instead of a failed browser download.
+  async function download() {
+    if (!attachment.url) {
+      saveBlob(attachment.blob, attachment.name)
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      const response = await fetch(`${attachment.url}?download=1`, { credentials: 'same-origin' })
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(
+          response.status === 401
+            ? 'Your session has ended. Choose a demo account again, then retry.'
+            : (body?.error ?? 'The file could not be downloaded.'),
+        )
+      }
+      saveBlob(await response.blob(), attachment.name)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The file could not be downloaded.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const isImage = attachment.type.startsWith('image/')
   return (
-    <a className="evidence-file" href={url || undefined} download={attachment.name}>
-      {attachment.type.startsWith('image/') && url ? (
-        <img src={url} alt={`Submitted evidence: ${attachment.name}`} />
-      ) : (
-        <span>
-          <FileImage size={24} />
-        </span>
-      )}
-      <div>
-        <strong>{attachment.name}</strong>
-        <small>Private preview attachment · {(attachment.size / 1024).toFixed(0)} KB</small>
+    <div className="evidence-file-wrap">
+      <div className="evidence-file">
+        {isImage && url && !broken ? (
+          <a href={url} target="_blank" rel="noopener" aria-label={`Open ${attachment.name}`}>
+            <img
+              src={url}
+              alt={`Submitted evidence: ${attachment.name}`}
+              onError={() => {
+                setBroken(true)
+                setError('This file could not be loaded from the server.')
+              }}
+            />
+          </a>
+        ) : (
+          <span>
+            <FileImage size={24} />
+          </span>
+        )}
+        <div>
+          <strong title={attachment.name}>{attachment.name}</strong>
+          <small>Private attachment · {(attachment.size / 1024).toFixed(0)} KB</small>
+        </div>
+        <div className="evidence-file-actions">
+          {url && (
+            <a className="button secondary compact" href={url} target="_blank" rel="noopener">
+              <Eye size={14} /> View
+            </a>
+          )}
+          <button className="button secondary compact" onClick={download} disabled={saving}>
+            <Download size={14} /> {saving ? 'Saving…' : 'Download'}
+          </button>
+        </div>
       </div>
-      <Download size={17} />
-    </a>
+      {error && (
+        <p role="alert" className="form-error evidence-file-error">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
+
+function saveBlob(blob: Blob, name: string) {
+  const href = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = href
+  link.download = name
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(href), 10_000)
+}
+
 export default function CaseDialog({
   record,
   onClose,
@@ -329,7 +400,10 @@ export default function CaseDialog({
               </section>
             )}
             {record.view && onRefresh && (
-              <StaffActions view={record.view} onChanged={(notice) => onRefresh(record.id, notice)} />
+              <StaffActions
+                view={record.view}
+                onChanged={(notice) => onRefresh(record.id, notice)}
+              />
             )}
             {record.status === 'Closure verified' &&
               record.view?.permissions.reopen &&

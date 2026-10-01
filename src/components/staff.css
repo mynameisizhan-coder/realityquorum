@@ -268,3 +268,46 @@
     flex: 1 1 auto;
   }
 }
+
+/* Attachments: thumbnail opens the file; explicit View and Download actions. */
+.evidence-file-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.evidence-file > a {
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.evidence-file > a > img {
+  width: 52px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f1f5e9;
+}
+/* Selector matches the specificity of `.evidence-file > div` in styles.css, which would otherwise squeeze it. */
+.evidence-file > .evidence-file-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.evidence-file-actions .button {
+  text-decoration: none;
+}
+.evidence-file-error {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .evidence-file {
+    flex-wrap: wrap;
+  }
+  .evidence-file > .evidence-file-actions {
+    flex: 1 1 100%;
+  }
+  .evidence-file-actions .button {
+    flex: 1;
+    justify-content: center;
+  }
+}

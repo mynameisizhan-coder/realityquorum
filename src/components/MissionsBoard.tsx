@@ -162,8 +162,12 @@ export default function MissionsBoard({
   const { data: missions, loading, error, reload } = useMissions(userId)
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState('')
-  const open = missions.filter((m) => m.status !== 'Submitted')
-  const done = missions.filter((m) => m.status === 'Submitted')
+  // Open missions, plus ones you have accepted; your submitted work; and (operators only) missions others are handling.
+  const open = missions.filter(
+    (m) => m.status === 'Open' || (m.assignedToMe && m.status === 'Accepted'),
+  )
+  const done = missions.filter((m) => m.assignedToMe && m.status === 'Submitted')
+  const others = missions.filter((m) => !m.assignedToMe && m.status !== 'Open')
 
   async function accept(mission: MissionView) {
     setBusy(mission.id)
@@ -267,10 +271,20 @@ export default function MissionsBoard({
       </div>
       {done.length > 0 && (
         <div className="missions-done">
-          <h3>Submitted</h3>
+          <h3>Your submitted evidence</h3>
           {done.map((m) => (
             <p key={m.id}>
               <CheckCircle2 size={14} /> {m.title} · {m.caseSummary.id}
+            </p>
+          ))}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="missions-done">
+          <h3>Being handled by others</h3>
+          {others.map((m) => (
+            <p key={m.id}>
+              <CheckCircle2 size={14} /> {m.title} · {m.caseSummary.id} · {m.status}
             </p>
           ))}
         </div>
