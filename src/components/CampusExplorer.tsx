@@ -24,10 +24,15 @@ const CampusScene = lazy(() => import('./CampusScene'))
 type View = '3d' | 'aerial' | 'list'
 const essentialLabels = new Set([
   'admin',
+  'ramanujan',
   'smv',
-  'hostel',
-  'new-ground',
+  'cv-raman',
+  'aic',
+  'bus-stop',
+  'canteen',
+  'amphitheatre',
   'indoor-stadium',
+  'new-ground',
   'garden',
 ])
 

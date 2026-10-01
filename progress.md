@@ -86,3 +86,23 @@ The frontend is connected to the local development API for demo accounts, privat
 - Reduced the default marker set from eleven labels to six high-value labels. All 13 remaining places are still available through the location list or the optional “show more labels” control.
 - Reduced decorative tree density and allowed greenery to fill the two spaces left by the removed destinations, producing a calmer campus overview.
 - Verified the live 3D view and location directory after the cleanup. TypeScript checks, the production build and all 46 automated tests pass.
+
+### 1 October 2026 — architectural layout reconstruction
+
+- Treated the student's hand-drawn block plan as the newest layout authority and rebuilt the 3D composition to match its visual hierarchy.
+- Positioned Sanmathi Garden left of B. C. Alva Ground across the upper band, with the bus stop offset to the upper-right.
+- Positioned Atal Incubation Centre, the canteen and SMV across the middle; C. V. Raman southeast of SMV; Ramanujan below the middle cluster; and APJ at the lower-right.
+- Rebuilt Atal, Canteen and SMV as U-shaped procedural footprints and retained the L-shaped C. V. Raman and U-shaped Ramanujan forms.
+- Redrew the campus road network around the new bands and connections instead of retaining roads from the earlier satellite layout.
+- Moved the SAC courtyard, B. C. Alva oval ground, Sanmathi landscaping and palms to support the new composition. Facilities absent from the sketch were retained at the quieter eastern edge rather than mixed into the primary block sequence.
+- Widened the default camera framing so APJ remains fully visible at the lower-right, shortened the Atal marker, and offset the canteen marker to keep the primary nine-place sequence readable.
+- Verified the rebuilt composition in the live browser. TypeScript checks, the production build and all 53 current automated tests pass.
+
+### 1 October 2026 — second sketch refinement and hostel media correction
+
+- Applied the student's refined layout: Indoor Stadium now anchors the upper-left, Sanmathi Garden sits immediately to its right, B. C. Alva Ground remains upper-centre and the Bus Stop remains upper-right.
+- Kept Atal, Canteen and SMV across the middle; shifted C. V. Raman, Ramanujan and APJ into the stepped lower-right sequence shown in the drawing.
+- Moved the Amphitheatre from the eastern edge to the large lower-left position and added both it and the Indoor Stadium to the default landmark labels.
+- Redrew all main road branches and greenery exclusion zones around the revised placement.
+- Replaced the hostel card photograph with the supplied Ladies Hostel aerial image and labelled it as a supplied reference.
+- Verified the revised 3D composition and the hostel detail card in the live browser. TypeScript checks, the production build and all 53 automated tests pass.

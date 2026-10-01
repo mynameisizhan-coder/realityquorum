@@ -35,15 +35,20 @@ const blocks: Record<string, Block[]> = {
     { x: 5.1, z: 0.6, w: 2.8, d: 7.2, h: 7.8 },
   ],
   smv: [
-    { x: 0, z: 0, w: 7.5, d: 5.2, h: 8.6, roof: true },
-    { x: -3.7, z: 3.6, w: 4.3, d: 2.4, h: 5.2 },
+    { x: 0, z: -3, w: 12, d: 2.8, h: 8.6, roof: true },
+    { x: -4.6, z: 0.5, w: 2.8, d: 7, h: 7.4 },
+    { x: 4.6, z: 0.5, w: 2.8, d: 7, h: 7.8 },
   ],
   'cv-raman': [
     { x: 0, z: 0, w: 6.4, d: 9.5, h: 9.2, roof: true },
     { x: 4.1, z: 0.8, w: 3.2, d: 7, h: 7.6, roof: true },
   ],
   'sac-oat': [{ x: 0, z: 3.8, w: 7.5, d: 1.9, h: 1.9, roof: true, windows: false }],
-  aic: [{ x: 0, z: 0, w: 7.5, d: 5, h: 4.2, roof: true }],
+  aic: [
+    { x: 0, z: -3.1, w: 12, d: 2.8, h: 4.2, roof: true },
+    { x: -4.6, z: 0.6, w: 2.8, d: 7.2, h: 4.5, roof: true },
+    { x: 4.6, z: 0.6, w: 2.8, d: 7.2, h: 4.5, roof: true },
+  ],
   'bus-stop': [{ x: 0, z: 0, w: 5.2, d: 1.5, h: 1.5, roof: true, windows: false }],
   amphitheatre: [
     { x: 0, z: 0, w: 13.5, d: 8.2, h: 6, roof: true, windows: false },
@@ -54,7 +59,11 @@ const blocks: Record<string, Block[]> = {
     { x: 4, z: 5, w: 7, d: 4, h: 7.2 },
     { x: -5.3, z: 5.2, w: 4.5, d: 4.2, h: 6.3 },
   ],
-  canteen: [{ x: 0, z: 0, w: 7, d: 5, h: 3.1, roof: true }],
+  canteen: [
+    { x: 0, z: -1.8, w: 7.5, d: 2.4, h: 3.1, roof: true },
+    { x: -2.7, z: 0.7, w: 2.1, d: 4.5, h: 2.8, roof: true },
+    { x: 2.7, z: 0.7, w: 2.1, d: 4.5, h: 2.8, roof: true },
+  ],
   'indoor-stadium': [{ x: 0, z: 0, w: 18, d: 9, h: 7, roof: true, windows: false }],
 }
 
@@ -238,13 +247,13 @@ function Building({
 
 type RoadPoint = [number, number]
 const roadNetworks: { points: RoadPoint[]; width: number }[] = [
-  { points: [[-80, -58], [-63, -54], [-52, -49], [-40, -45], [-25, -43], [-8, -38], [8, -28]], width: 4.8 },
-  { points: [[-58, -48], [-54, -35], [-38, -28], [-23, -27], [-7, -22], [4, -10], [5, 7], [-7, 21], [-13, 42], [-15, 67]], width: 3.4 },
-  { points: [[-38, -30], [-23, -35], [-7, -35], [5, -28], [19, -24], [38, -28], [62, -34], [70, -28]], width: 3.2 },
-  { points: [[3, -22], [18, -15], [35, -10], [55, -4], [66, 4], [71, 17]], width: 3.5 },
-  { points: [[62, -32], [64, -18], [61, -6], [58, 7]], width: 3.2 },
-  { points: [[4, 8], [18, 10], [33, 4], [49, -2], [61, -6]], width: 3.1 },
-  { points: [[-8, 22], [-28, 22], [-39, 31], [-41, 47], [-25, 59], [-15, 65]], width: 3.2 },
+  { points: [[-78, -58], [-68, -52], [-43, -49], [5, -50], [30, -38], [52, -20]], width: 4.6 },
+  { points: [[-68, -52], [-62, -26], [-52, 0], [-35, 2], [-18, 1], [0, 1], [16, 0], [34, 7], [52, -20]], width: 3.3 },
+  { points: [[5, -50], [10, -26], [16, 0], [29, 8], [38, 18], [25, 29], [10, 35], [26, 47], [42, 58]], width: 3.5 },
+  { points: [[-43, -49], [-48, -24], [-52, 0], [-50, 23], [-45, 55]], width: 3.1 },
+  { points: [[-45, 55], [-20, 48], [10, 35], [24, 30], [38, 18]], width: 3.1 },
+  { points: [[52, -20], [62, 0], [68, 20], [68, 34], [55, 48], [42, 58]], width: 3.2 },
+  { points: [[38, 18], [52, 22], [68, 34]], width: 3.0 },
 ]
 
 function Road({ points, width }: { points: RoadPoint[]; width: number }) {
@@ -277,10 +286,9 @@ function Greenery() {
       return (seed - 1) / 2147483646
     }
     const zones: [number, number, number, number][] = [
-      [-42, -45, 20, 13], [-54, -34, 19, 17], [-42, -22, 13, 13], [-30, -34, 13, 15],
-      [-42, -34, 15, 12], [-18, -22, 13, 12], [-17, -11, 9, 7], [-7, -35, 20, 15],
-      [8, -5, 12, 11], [1, 8, 22, 17],
-      [-15, 63, 55, 37], [64, -32, 24, 15], [58, -18, 12, 10], [60, -6, 25, 22],
+      [42, 58, 20, 13], [10, 35, 19, 17], [16, 0, 15, 15], [38, 18, 14, 16],
+      [24, 30, 15, 12], [-52, 0, 16, 13], [52, -20, 10, 8], [-18, 1, 12, 10],
+      [68, 34, 23, 18], [-45, 55, 23, 17], [5, -50, 55, 37], [-68, -52, 24, 15], [-43, -49, 25, 22],
     ]
     const roadSegments = roadNetworks.flatMap((road) => road.points.slice(1).map((point, index) => [road.points[index], point, road.width] as const))
     const nearRoad = (x: number, z: number) => roadSegments.some(([a, b, width]) => {
@@ -381,14 +389,13 @@ function Landscape() {
       <Solid position={[2, -0.08, 8]} size={[166, 0.28, 147]} color="#d1dcc2" />
       {roadNetworks.map((road, index) => <Road key={index} {...road} />)}
 
-      <group position={[-42, 0, -34]}>
+      <group position={[24, 0, 30]}>
         <Solid position={[0, 0.16, 0]} size={[12, 0.09, 9]} color="#9fb886" />
         <Solid position={[0, 0.22, 0]} size={[1.2, 0.05, 9]} color="#e6dfc9" />
         <Solid position={[0, 0.22, 0]} size={[12, 0.05, 1.1]} color="#e6dfc9" />
       </group>
 
-      <FootballPitch x={-11.5} z={22.1} w={35} d={20} />
-      <group position={[-14.9, 0, 63.1]}>
+      <group position={[5, 0, -50]}>
         <mesh position={[0, 0.14, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[25, 16, 1]}>
           <circleGeometry args={[1, 96]} />
           <meshStandardMaterial color="#a17b63" />
@@ -400,7 +407,7 @@ function Landscape() {
         <FootballPitch x={0} z={0} w={38} d={20} />
       </group>
 
-      <group position={[60.4, 0, -6.3]}>
+      <group position={[-43, 0, -49]}>
         <Solid position={[0, 0.17, 0]} size={[21, 0.1, 18]} color="#9fba80" />
         <Solid position={[0, 0.23, 0]} size={[1.5, 0.06, 18]} color="#e6dfc9" />
         <Solid position={[0, 0.23, 0]} size={[21, 0.06, 1.5]} color="#e6dfc9" />
@@ -408,7 +415,7 @@ function Landscape() {
         <Solid position={[0, 0.34, 0]} size={[0.6, 0.04, 7]} color="#ebe4cf" />
         <Solid position={[0, 0.34, 0]} size={[8.7, 0.04, 0.6]} color="#ebe4cf" />
       </group>
-      {[52, 59, 67].flatMap((x) => [-13, -5, 2].map((z) => <Palm key={`${x}-${z}`} x={x} z={z} />))}
+      {[-51, -43, -35].flatMap((x) => [-56, -48, -41].map((z) => <Palm key={`${x}-${z}`} x={x} z={z} />))}
 
       <Solid position={[-70, 1.25, -57]} size={[0.65, 2.5, 0.65]} color="#ece4d0" />
       <Solid position={[-63, 1.25, -55]} size={[0.65, 2.5, 0.65]} color="#ece4d0" />
@@ -423,7 +430,7 @@ function CameraControls({ command }: Pick<SceneProps, 'command'>) {
   const ref = useRef<OrbitControlsImpl>(null)
   const initialized = useRef(false)
   const { camera, size, invalidate } = useThree()
-  const baseZoom = Math.min(size.width / 205, size.height / 150)
+  const baseZoom = Math.min(size.width / 215, size.height / 165)
   useEffect(() => {
     if ('zoom' in camera) {
       if (!initialized.current) {
@@ -473,8 +480,8 @@ function CameraControls({ command }: Pick<SceneProps, 'command'>) {
 }
 
 const markerPriority = [
-  'admin', 'smv', 'hostel', 'new-ground', 'indoor-stadium', 'garden',
-  'ramanujan', 'cv-raman', 'sac-oat', 'aic', 'bus-stop',
+  'admin', 'ramanujan', 'smv', 'cv-raman', 'aic', 'canteen', 'bus-stop',
+  'new-ground', 'garden', 'indoor-stadium', 'amphitheatre', 'hostel', 'sac-oat',
   'amphitheatre', 'canteen',
 ]
 
