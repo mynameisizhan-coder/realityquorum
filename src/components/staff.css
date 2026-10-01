@@ -1,0 +1,270 @@
+/* Live staff, mission and public-update components. Uses the tokens defined in styles.css. */
+
+.staff-actions {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfcf7;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.staff-heading {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--forest);
+}
+.staff-heading strong {
+  display: block;
+  font-size: 14px;
+}
+.staff-heading small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.staff-section {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.staff-section h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--deep);
+}
+.staff-section label,
+.mission-submit label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 550;
+  color: #506b48;
+}
+.staff-section input:not([type='file']):not([type='radio']),
+.staff-section select,
+.staff-section textarea,
+.mission-submit select,
+.mission-submit textarea {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  padding: 9px 11px;
+  font-size: 12px;
+  color: #293d34;
+  min-width: 0;
+}
+.staff-section input[type='file'],
+.mission-submit input[type='file'] {
+  font-size: 11px;
+  max-width: 100%;
+}
+.staff-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.staff-row > input {
+  flex: 1 1 180px;
+}
+.staff-section .field-pair {
+  gap: 10px;
+}
+.staff-published {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--sage);
+  color: var(--deep);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.staff-related {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.staff-related small {
+  display: block;
+  color: var(--muted);
+}
+.staff-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 34px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+.staff-empty strong {
+  color: var(--deep);
+}
+.staff-empty p {
+  margin: 0;
+  max-width: 440px;
+  font-size: 12px;
+}
+
+/* Missions */
+.missions-board {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.mission-card.live {
+  gap: 8px;
+}
+.mission-card.live h2 {
+  margin: 4px 0 0;
+}
+.mission-card.is-locked {
+  background: #f9f9f4;
+}
+.mission-case {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mission-steps {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #4b5d52;
+}
+.mission-locked {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #9a6b3c;
+}
+.mission-submit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.challenge-code {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--lime);
+  color: var(--deep);
+}
+.challenge-code span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.challenge-code strong {
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.challenge-code small {
+  grid-column: 1 / -1;
+  font-size: 11px;
+}
+.finding-choice {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.finding-choice legend {
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--deep);
+}
+.finding-choice label {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  font-weight: 400;
+}
+.missions-done h3 {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+.missions-done p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Public updates */
+.public-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.public-update {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffef9;
+  padding: 18px 20px;
+}
+.public-update > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.public-update > p {
+  margin: 8px 0 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--deep);
+}
+.public-update > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .staff-actions {
+    padding: 14px;
+  }
+  .staff-row .button {
+    flex: 1 1 auto;
+  }
+}

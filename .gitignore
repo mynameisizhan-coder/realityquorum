@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+test-results/
+.DS_Store
+server/data/
+
+# Source footage and local tool settings stay on this machine
+videos-for-ui/
+reference/
+.claude/

@@ -1,0 +1,21 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: realityquorum
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      # Entered once in the Render dashboard when you create the service; never stored in the repo.
+      - key: GEMINI_API_KEY
+        sync: false
+      # Public demo: role switcher on, Gemini calls capped per visitor.
+      - key: ALLOW_DEMO_LOGIN
+        value: "true"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "20"
