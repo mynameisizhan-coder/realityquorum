@@ -34,7 +34,7 @@ function sessionSecret(): string {
 const key = env.GEMINI_API_KEY?.trim()
 // GEMINI_MODEL (comma-separated, tried in order) overrides both the text and the photo models.
 const override = env.GEMINI_MODEL?.split(',').map(m => m.trim()).filter(Boolean)
-const models = override?.length ? { text: override, vision: override } : DEFAULT_MODELS
+const models = override?.length ? { text: override, vision: override, web: override } : DEFAULT_MODELS
 const gemini = key ? new FallbackGemini(new RealGemini(key, models)) : new MockGemini()
 
 const allowDemoLogin = flag('ALLOW_DEMO_LOGIN', true)

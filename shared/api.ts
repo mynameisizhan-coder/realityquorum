@@ -33,6 +33,8 @@ export interface CasePermissions {
   revealIdentity: boolean
   flagAbuse: boolean
   viewRelated: boolean
+  /** Re-run the automated check of the official college website. */
+  officialCheck: boolean
 }
 
 export interface CaseView extends Omit<Case, 'reporterId'> {

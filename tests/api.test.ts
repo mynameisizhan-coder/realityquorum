@@ -67,7 +67,9 @@ describe('intake', () => {
     const c = await upload<CaseView>('u-student', '/api/cases', canteenReport({ food: { item: 'Veg meals', servedAt: '', receipt: 'Order 12', disturbed: 'Not moved' } }),
       [{ name: 'plate.png', type: 'image/png', content: PNG }, { name: 'receipt.pdf', type: 'application/pdf', content: PDF }], 201)
     expect(c.evidence.map(e => e.kind)).toEqual(['photo', 'receipt'])
-    expect(state(c, 'food.object_visible')).toBe('Supported')
+    // The offline mock cannot see the photo, so it is kept for review but proves nothing yet.
+    expect(state(c, 'food.object_visible')).toBe('Unresolved')
+    expect(c.timeline.map(t => t.title)).toContain('Photo kept for review')
     expect(state(c, 'food.origin_at_serving')).toBe('Unresolved')
     expect(c.files).toHaveLength(2)
     // Raw files stay private: the reporter can fetch them, another student cannot.
@@ -99,7 +101,7 @@ describe('intake', () => {
   it('the direct-report flow works independently of WhatsApp verification', async () => {
     await app.close()
     // A Gemini adapter that returns garbage must not stop a direct report.
-    const broken: GeminiAdapter = { name: 'broken', suggest: async () => ({ nonsense: true }), observe: async () => 42, selectMissions: async () => [{ templateId: 'invented.mission' }] }
+    const broken: GeminiAdapter = { name: 'broken', suggest: async () => ({ nonsense: true }), observe: async () => 42 }
     await start(broken)
     const c = await call<CaseView>('u-student', 'POST', '/api/cases', canteenReport(), 201)
     expect(c.predicates.every(p => p.tier !== 'attribution')).toBe(true)

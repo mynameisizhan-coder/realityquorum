@@ -442,6 +442,24 @@ export default function StaffActions({
         </Section>
       )}
 
+      {p.officialCheck && (
+        <Section icon={<Link2 size={15} />} title="Official website">
+          <p className="input-note">
+            Ask Gemini to read NMAMIT’s announcements and news pages again. Only a quote that is
+            really on the official page can confirm or contradict the message.
+          </p>
+          <button
+            className="button secondary compact"
+            disabled={!!busy}
+            onClick={() =>
+              run('official', () => api.checkOfficialWebsite(view.id), 'Official website checked.')
+            }
+          >
+            {busy === 'official' ? 'Checking the website…' : 'Check the college website again'}
+          </button>
+        </Section>
+      )}
+
       {p.viewRelated && (
         <Section icon={<Link2 size={15} />} title="Related reports">
           {related === null ? (

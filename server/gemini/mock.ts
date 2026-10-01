@@ -1,5 +1,5 @@
 import type { Category, ScopeTier, Urgency } from '../../shared/domain'
-import type { GeminiAdapter, MissionSelection, Suggestion } from './adapter'
+import type { GeminiAdapter, Suggestion } from './adapter'
 
 // Deterministic stand-in for Gemini. Keyword rules are intentionally simple so tests and the live demo
 // are reproducible, including the case where the suggestion is wrong and the student corrects it.
@@ -35,18 +35,10 @@ export class MockGemini implements GeminiAdapter {
 
   async observe({ kind, fileNames, packId }: { kind: string; fileNames: string[]; packId: string }): Promise<string[]> {
     if (!fileNames.length) return []
+    // The mock cannot see images, so it never answers whether a condition is visible.
     const notes = [`${fileNames.length} file(s) received. Mock adapter: no image analysis was performed.`]
     if (packId === 'food-safety' && kind === 'photo') notes.push('An insect-like object may be visible; confirm against the plate boundary.', 'The images alone do not establish when the object entered the food.')
     if (packId === 'exit-access' && (kind === 'photo' || kind === 'closure_photo')) notes.push('Check whether the passage width is clear and the exit sign is visible.')
     return notes
-  }
-
-  async selectMissions(pack: Parameters<GeminiAdapter['selectMissions']>[0], record: Parameters<GeminiAdapter['selectMissions']>[1]): Promise<MissionSelection> {
-    const attributionIds = new Set(pack.predicates.filter(p => p.appliesTo === 'message').map(p => p.id))
-    return pack.missions
-      .filter(m => (m.phase ?? 'evidence') === 'evidence')
-      // Official-source checks only make sense when there is a message to attribute.
-      .filter(m => record.route === 'message' || !m.targets.every(t => attributionIds.has(t)))
-      .map(m => ({ templateId: m.id }))
   }
 }

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Dialog } from './Dialog'
 import StaffActions from './StaffActions'
+import OfficialCheckCard from './OfficialCheckCard'
 import { getLocation } from '../data/campus'
 import { ownerFor, toAttachments, validateFiles } from '../lib/cases'
 import type { Attachment, CaseRecord } from '../types'
@@ -277,6 +278,7 @@ export default function CaseDialog({
                 </small>
               </div>
             </div>
+            {record.view?.officialCheck && <OfficialCheckCard check={record.view.officialCheck} />}
             {record.predicates.length ? (
               <div className="predicate-list">
                 <h3>What the evidence actually supports</h3>

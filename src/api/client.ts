@@ -140,6 +140,8 @@ export const api = {
     }),
   updateWorkOrder: (id: string, status: WorkOrder['status'], note = '') =>
     request<WorkOrder>('PATCH', `/workorders/${encodeURIComponent(id)}`, { status, note }),
+  checkOfficialWebsite: (id: string) =>
+    request<CaseView>('POST', `/cases/${encodeURIComponent(id)}/official-check`, {}),
   closeCase: (id: string) =>
     request<CaseView>('POST', `/cases/${encodeURIComponent(id)}/close`, {}),
   requestReopen: (id: string, reason: string) =>

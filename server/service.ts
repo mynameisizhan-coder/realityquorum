@@ -12,15 +12,17 @@ import { suggestRelated } from '../shared/related'
 import { validateFiles } from '../shared/validation'
 import { locations } from '../src/data/campus'
 import type { Store } from './db'
-import { MissionSelectionSchema, ObservationSchema, SuggestionSchema } from './gemini/adapter'
-import type { GeminiAdapter } from './gemini/adapter'
+import { normaliseObservation, ObservationSchema, OfficialCheckSchema, SuggestionSchema } from './gemini/adapter'
+import type { GeminiAdapter, Observation } from './gemini/adapter'
+import { defaultFetchText, OFFICIAL_SOURCES, verifyOfficialCheck } from './official'
+import type { FetchText, OfficialResult } from './official'
 
 export class HttpError extends Error {
   constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown) { super(message) }
 }
 const fail = (status: number, code: string, message: string, details?: unknown): never => { throw new HttpError(status, code, message, details) }
 
-export interface Ctx { store: Store; gemini: GeminiAdapter; uploadDir: string }
+export interface Ctx { store: Store; gemini: GeminiAdapter; uploadDir: string; fetchText?: FetchText }
 export interface IncomingFile { name: string; type: string; data: Buffer }
 
 export interface NewCaseInput {
@@ -90,38 +92,43 @@ export function fileFor(ctx: Ctx, user: User, caseId: string, fileId: string): F
 
 // ---------- gemini (always validated) ----------
 
+// The form asks for a suggestion and submitting asks again for the same text; reuse it to save quota.
+const suggestionCache = new Map<string, { at: number; result: SuggestResult }>()
+const SUGGESTION_TTL = 15 * 60_000
+
 export async function suggest(ctx: Ctx, input: { route: Route; text: string; locationId: string }): Promise<SuggestResult> {
+  const key = `${ctx.gemini.name}|${input.route}|${input.locationId}|${input.text.trim()}`
+  const cached = suggestionCache.get(key)
+  if (cached && Date.now() - cached.at < SUGGESTION_TTL) return cached.result
   const parsed = SuggestionSchema.safeParse(await ctx.gemini.suggest(input))
   if (!parsed.success) return { category: 'Other', urgency: 'Routine', confidence: 0, rationale: 'Suggestion unavailable; please choose the category.', claims: [], source: ctx.gemini.name }
-  return { ...(parsed.data as Omit<SuggestResult, 'source'>), source: ctx.gemini.name }
+  const result = { ...(parsed.data as Omit<SuggestResult, 'source'>), source: ctx.gemini.name }
+  if (suggestionCache.size >= 200) suggestionCache.delete(suggestionCache.keys().next().value!)
+  suggestionCache.set(key, { at: Date.now(), result })
+  return result
 }
 
-async function observe(ctx: Ctx, kind: EvidenceKind, note: string, files: IncomingFile[], packId: string): Promise<string[]> {
+async function observe(ctx: Ctx, record: Case, kind: EvidenceKind, note: string, files: IncomingFile[]): Promise<Observation> {
   const images = files.filter(f => f.type.startsWith('image/')).map(f => ({ type: f.type, data: f.data }))
-  const parsed = ObservationSchema.safeParse(await ctx.gemini.observe({ kind, note, fileNames: files.map(f => f.name), packId, images }))
-  return parsed.success ? parsed.data : []
+  // Gemini is asked, for each observable condition in this case, whether the photo shows it.
+  const questions = record.predicates.filter(p => p.tier === 'observable').map(p => ({ id: p.id, text: p.text }))
+  const parsed = ObservationSchema.safeParse(await ctx.gemini.observe({ kind, note, fileNames: files.map(f => f.name), packId: record.policyPackId, images, questions }))
+  if (!parsed.success) return { observations: [], answers: [] }
+  const result = normaliseObservation(parsed.data)
+  return { ...result, answers: result.answers.filter(a => questions.some(q => q.id === a.id)) }
 }
 
 /**
- * Gemini picks from the pack; anything not in the pack is dropped, never invented. Gemini may trim
- * missions within a role, but it cannot leave a role with no task, and the alternative-explanation
- * check is always included.
+ * Every approved evidence mission in the case's policy pack, so each role (reporter, volunteer,
+ * department) always has its task. The pack is chosen by category, which is where Gemini's
+ * suggestion has its effect; Gemini never chooses or invents missions.
  */
-async function selectMissions(ctx: Ctx, pack: PolicyPack, record: Case): Promise<string[]> {
+function selectMissions(pack: PolicyPack, record: Case): string[] {
   const attributionOnly = new Set(pack.predicates.filter(p => p.appliesTo === 'message').map(p => p.id))
-  const candidates = pack.missions.filter(m => (m.phase ?? 'evidence') === 'evidence')
+  return pack.missions.filter(m => (m.phase ?? 'evidence') === 'evidence')
     // Issuer checks only make sense when there is a message to attribute.
     .filter(m => record.route === 'message' || !m.targets.every(t => attributionOnly.has(t)))
-  const allowed = new Set(candidates.map(m => m.id))
-  const parsed = MissionSelectionSchema.safeParse(await ctx.gemini.selectMissions(pack, record))
-  const chosen = new Set(parsed.success ? parsed.data.map(s => s.templateId).filter(id => allowed.has(id)) : [])
-  if (!chosen.size) return candidates.map(m => m.id)
-  for (const m of candidates) if (m.isDisconfirmation) chosen.add(m.id)
-  for (const m of candidates) {
-    const roleCovered = m.allowedRoles.some(role => candidates.some(c => chosen.has(c.id) && c.allowedRoles.includes(role)))
-    if (!roleCovered) chosen.add(m.id)
-  }
-  return candidates.filter(m => chosen.has(m.id)).map(m => m.id)
+    .map(m => m.id)
 }
 
 function instantiateMissions(ctx: Ctx, record: Case, templateIds: string[]): Mission[] {
@@ -171,22 +178,42 @@ function evidenceKindsFor(user: User, record: Case): EvidenceKind[] {
   return []
 }
 
-async function recordEvidence(ctx: Ctx, user: User, record: Case, input: EvidenceInput, files: IncomingFile[], mission?: Mission): Promise<EvidenceItem> {
+/**
+ * Adds one item to the evidence ledger. With `findingsFromPhoto`, a photo only counts towards the
+ * conditions Gemini says it clearly shows; an unrelated or unanalysed photo is kept but proves nothing.
+ */
+async function recordEvidence(ctx: Ctx, user: User, record: Case, input: EvidenceInput, files: IncomingFile[], mission?: Mission, findingsFromPhoto = false): Promise<EvidenceItem> {
   const pack = getPack(record.policyPackId)
-  const findings = input.findings ?? []
-  validateFindings(pack, record, user, input.kind, findings)
+  validateFindings(pack, record, user, input.kind, input.findings ?? [])
   const capturedAt = input.capturedAt && Number.isFinite(Date.parse(input.capturedAt)) ? new Date(input.capturedAt).toISOString() : nowIso()
   if (Date.parse(capturedAt) > Date.now() + 5 * 60_000) fail(400, 'future_capture', 'The capture time cannot be in the future.')
   const refs = saveFiles(ctx, record.id, files)
+  const seen = await observe(ctx, record, input.kind, input.note ?? '', files)
+  const textOf = (id: string) => record.predicates.find(p => p.id === id)?.text ?? id
+  let findings = input.findings ?? []
+  if (findingsFromPhoto) {
+    findings = seen.answers
+      .filter(a => a.status === 'visible' && a.id !== pack.closurePredicate && pack.predicates.find(t => t.id === a.id)?.acceptedKinds.includes(input.kind))
+      .map(a => ({ predicateId: a.id, effect: 'supports' as const }))
+  }
+  // A person's finding stands, but a photo that does not seem to show it is flagged for review.
+  const flags = findings
+    .filter(f => f.effect === 'supports' && seen.answers.some(a => a.id === f.predicateId && a.status === 'not_visible'))
+    .map(f => `Automated photo check: the photo does not appear to show “${textOf(f.predicateId)}”. Review it before relying on this.`)
   const item: EvidenceItem = {
     id: newId('E'), caseId: record.id, kind: input.kind, note: (input.note ?? '').slice(0, 2000),
     submittedBy: user.id, sourceRole: user.role, sourceAlias: user.alias,
     // Official sources are independent by issuer, not by who typed them in.
     sourceKey: input.kind === 'official_source' && input.issuer ? `official:${input.issuer.toLowerCase().trim()}` : user.id,
     missionId: mission?.id, capturedAt, recordedAt: nowIso(), challengeCode: input.challengeCode, findings,
-    observations: await observe(ctx, input.kind, input.note ?? '', files, pack.id), files: refs, demo: record.demo,
+    observations: [...seen.observations, ...flags].slice(0, 10), files: refs, demo: record.demo,
   }
   ctx.store.put('evidence', item, record.id)
+  if (findingsFromPhoto && refs.some(f => f.type.startsWith('image/')) && !findings.length) {
+    timeline(record, 'Photo kept for review', seen.answers.length
+      ? 'The automated photo check could not see the reported condition in the photo, so it does not count as proof yet.'
+      : 'The photo has not been analysed automatically, so it does not count as proof until someone reviews it or a volunteer confirms the condition.')
+  }
   return item
 }
 
@@ -220,27 +247,88 @@ export async function createCase(ctx: Ctx, user: User, input: NewCaseInput, file
   if (input.route === 'message') await recordEvidence(ctx, user, record, { kind: 'message_text', note: description }, [])
 
   const images = files.filter(f => f.type.startsWith('image/')), documents = files.filter(f => !f.type.startsWith('image/'))
-  // Intake media from a direct report supports what is observable; screenshots of a message prove only that the message exists.
-  const observableFor = (kind: EvidenceKind): Finding[] => input.route === 'issue'
-    ? record.predicates.filter(p => p.tier === 'observable' && p.id !== pack.closurePredicate && pack.predicates.find(t => t.id === p.id)!.acceptedKinds.includes(kind)).map(p => ({ predicateId: p.id, effect: 'supports' as const }))
-    : []
-  // Mission selection does not depend on the evidence, so it runs while the photos are being analysed.
-  const missionChoice = selectMissions(ctx, pack, record)
-  const photoKind: EvidenceKind = input.route === 'message' ? 'message_text' : 'photo'
-  if (images.length) await recordEvidence(ctx, user, record, { kind: photoKind, note: 'Submitted with the report.', capturedAt: input.capturedAt, findings: observableFor(photoKind) }, images)
+  // The official-website check reads the web, so it runs while the photos are being analysed.
+  const officialCheck = input.route === 'message' ? checkOfficialSources(ctx, record) : Promise.resolve(null)
+  // A direct report's photo counts only for what the photo check sees in it. Screenshots of a
+  // message prove only that the message exists. Documents are kept but not analysed.
+  if (images.length) {
+    if (input.route === 'issue') await recordEvidence(ctx, user, record, { kind: 'photo', note: 'Submitted with the report.', capturedAt: input.capturedAt }, images, undefined, true)
+    else await recordEvidence(ctx, user, record, { kind: 'message_text', note: 'Screenshot submitted with the message.', capturedAt: input.capturedAt }, images)
+  }
   if (documents.length) {
     const docKind: EvidenceKind = category === 'Food & canteen' ? 'receipt' : 'observation'
-    await recordEvidence(ctx, user, record, { kind: docKind, note: 'Document submitted with the report.', capturedAt: input.capturedAt, findings: observableFor(docKind) }, documents)
+    await recordEvidence(ctx, user, record, { kind: docKind, note: 'Document submitted with the report.', capturedAt: input.capturedAt }, documents)
   }
   record.files = [...ctx.store.byCase<EvidenceItem>('evidence', id).flatMap(e => e.files)]
   if (input.route === 'message') timeline(record, 'Claims separated', `${record.claims.length} claim(s) extracted. Attribution and physical conditions are checked separately.`)
+  await recordOfficialCheck(ctx, record, await officialCheck)
 
-  const missions = instantiateMissions(ctx, record, await missionChoice)
+  const missions = instantiateMissions(ctx, record, selectMissions(pack, record))
   timeline(record, 'Evidence missions prepared', `${missions.length} mission(s) from the ${pack.name} policy pack.`)
   recompute(ctx, record)
 
   if (pack.autoSafetyWorkOrder && record.urgency === 'Urgent') createWorkOrder(ctx, record, 'safety_policy', 'system')
   ctx.store.put('cases', record, id)
+  return caseView(ctx, user, record)
+}
+
+// ---------- official website check ----------
+
+/** Records made by the automated check are attributed to this account, not to a person. */
+const OFFICIAL_CHECKER: User = { id: 'system:official-website', name: 'Official website check', role: 'operator', alias: 'Official website check (automated)', qualifications: [] }
+
+/** Asks Gemini to read NMAMIT's official pages, then verifies its quotes. Null when the case has no "who issued it" question. */
+async function checkOfficialSources(ctx: Ctx, record: Case): Promise<OfficialResult | null> {
+  if (!record.predicates.some(p => p.tier === 'attribution') || !ctx.gemini.checkOfficial) return null
+  const checkedAt = nowIso()
+  const unavailable: OfficialResult = { status: 'unavailable', summary: 'The official website could not be checked automatically right now. An operator can retry or confirm with the office directly.', checkedAt, sources: OFFICIAL_SOURCES, quotes: [] }
+  try {
+    const claims = record.claims.filter(c => c.tier === 'attribution').map(c => c.text)
+    const parsed = OfficialCheckSchema.safeParse(await ctx.gemini.checkOfficial({ message: record.description, claims: claims.length ? claims : [record.description], sources: OFFICIAL_SOURCES, checkedAt }))
+    if (!parsed.success) return unavailable
+    return await verifyOfficialCheck(parsed.data, ctx.fetchText ?? defaultFetchText, checkedAt)
+  } catch {
+    return unavailable
+  }
+}
+
+const OFFICIAL_TITLE: Record<OfficialResult['status'], string> = {
+  confirmed: 'Official website confirms the notice',
+  contradicted: 'Official website contradicts the message',
+  not_found: 'No matching notice on the official website',
+  unverified: 'Official website check could not be verified',
+  unavailable: 'Official website could not be checked',
+}
+
+/** Puts the result on the case and the evidence ledger. Only a verified quote can support or contradict a claim. */
+async function recordOfficialCheck(ctx: Ctx, record: Case, result: OfficialResult | null): Promise<void> {
+  if (!result) return
+  record.officialCheck = result
+  const quotes = result.quotes.map(q => `“${q.text}” (${q.url})`).join(' ')
+  const checked = `Checked ${result.sources.join(' and ')} on ${new Date(result.checkedAt).toUTCString()}.`
+  if (result.status === 'confirmed' || result.status === 'contradicted') {
+    const effect = result.status === 'confirmed' ? 'supports' as const : 'contradicts' as const
+    await recordEvidence(ctx, OFFICIAL_CHECKER, record, {
+      kind: 'official_source', issuer: 'NMAMIT official website', note: `${result.summary} ${quotes} ${checked}`,
+      findings: record.predicates.filter(p => p.tier === 'attribution').map(p => ({ predicateId: p.id, effect })),
+    }, [])
+  } else if (result.status !== 'unavailable') {
+    // A notice missing from the website is not a denial, so this records what was checked without a finding.
+    await recordEvidence(ctx, OFFICIAL_CHECKER, record, { kind: 'observation', note: `${result.summary} ${checked} A missing notice does not prove the message is false; confirm with the office.` }, [])
+  }
+  timeline(record, OFFICIAL_TITLE[result.status], result.summary)
+  recompute(ctx, record)
+}
+
+export async function recheckOfficialSources(ctx: Ctx, user: User, caseId: string): Promise<CaseView> {
+  if (!can(user, 'evidence.official')) fail(403, 'forbidden', 'Only an operator or trust officer can run the official website check.')
+  const record = loadCase(ctx, caseId)
+  if (record.route !== 'message' || !record.predicates.some(p => p.tier === 'attribution')) fail(409, 'not_applicable', 'This case has no official notice to check.')
+  const result = await checkOfficialSources(ctx, record)
+  if (!result) fail(503, 'unavailable', 'The official website check is not available on this server.')
+  await recordOfficialCheck(ctx, record, result)
+  ctx.store.put('cases', record, record.id)
+  ctx.store.audit(user.id, 'official.check', record.id, result!.status)
   return caseView(ctx, user, record)
 }
 
@@ -532,6 +620,7 @@ export function caseView(ctx: Ctx, user: User, record: Case): CaseView {
       revealIdentity: can(user, 'identity.reveal'),
       flagAbuse: can(user, 'abuse.flag'),
       viewRelated: staff,
+      officialCheck: can(user, 'evidence.official') && record.route === 'message' && record.predicates.some(p => p.tier === 'attribution'),
     },
   }
 }

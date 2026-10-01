@@ -18,6 +18,7 @@ import * as svc from './service'
 import { HttpError } from './service'
 import type { Ctx, IncomingFile } from './service'
 import { seed } from './seed'
+import type { FetchText } from './official'
 
 export interface AppOptions {
   dbPath: string
@@ -32,6 +33,8 @@ export interface AppOptions {
   secureCookies?: boolean
   /** The demo role switcher lets anyone act as any role. Disable it for anything but a demonstration. */
   allowDemoLogin?: boolean
+  /** Fetches official pages to verify quotes. Tests pass a stub. */
+  fetchText?: FetchText
   /** Requests per minute per client for AI-backed and write endpoints. 0 disables limiting (tests). */
   rateLimitPerMinute?: number
   trustProxy?: boolean
@@ -83,7 +86,7 @@ async function readBody(request: FastifyRequest): Promise<{ data: unknown; files
 export async function buildApp(options: AppOptions) {
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 1_000_000, trustProxy: options.trustProxy ?? false })
   const store = new Store(options.dbPath)
-  const ctx: Ctx = { store, gemini: options.gemini ?? new MockGemini(), uploadDir: options.uploadDir }
+  const ctx: Ctx = { store, gemini: options.gemini ?? new MockGemini(), uploadDir: options.uploadDir, fetchText: options.fetchText }
   // Prepared demo cases always use the deterministic mock so they come out identical every time.
   const seedCtx: Ctx = { ...ctx, gemini: new MockGemini() }
   if (options.seedDemo !== false) await seed(seedCtx)
@@ -203,6 +206,7 @@ export async function buildApp(options: AppOptions) {
     return svc.updateWorkOrder(ctx, requireUser(request), id(request), body.status, body.note)
   })
   app.post('/api/cases/:id/close', async request => svc.closeCase(ctx, requireUser(request), id(request)))
+  app.post('/api/cases/:id/official-check', limited, async request => svc.recheckOfficialSources(ctx, requireUser(request), id(request)))
   app.post('/api/cases/:id/reopen', async request => svc.requestReopen(ctx, requireUser(request), id(request), parse(Reason, request.body).reason))
   app.post('/api/cases/:id/reopen/review', async request => svc.reviewReopen(ctx, requireUser(request), id(request), parse(z.object({ accept: z.boolean() }), request.body).accept))
 

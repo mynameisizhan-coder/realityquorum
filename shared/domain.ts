@@ -158,6 +158,15 @@ export interface PublicUpdate {
 
 export interface TimelineEntry { title: string; detail: string; at: string }
 
+/** Result of checking a circulating message against the institution's official website. */
+export interface OfficialCheckResult {
+  status: 'confirmed' | 'contradicted' | 'not_found' | 'unverified' | 'unavailable'
+  summary: string
+  checkedAt: string
+  sources: string[]
+  quotes: { url: string; text: string }[]
+}
+
 export interface FoodDetails { item: string; servedAt: string; receipt: string; disturbed: string }
 
 export interface ExtractedClaim { text: string; tier: ScopeTier; predicateId?: string }
@@ -189,6 +198,7 @@ export interface Case {
   demo: boolean
   reopenReason?: string
   statusBeforeReopen?: CaseStatus
+  officialCheck?: OfficialCheckResult
   abuseFlags: number
 }
 

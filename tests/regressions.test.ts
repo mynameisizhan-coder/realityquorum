@@ -77,7 +77,7 @@ describe('operator can view and download a student photo', () => {
 
 describe('every role receives tasks for a new report', () => {
   // Real Gemini sometimes returned only the reporter's mission.
-  const minimal: GeminiAdapter = { ...new MockGemini(), name: 'minimal', suggest: (i) => new MockGemini().suggest(i), observe: async () => [], selectMissions: async (pack) => [{ templateId: pack.missions[0].id }] }
+  const minimal: GeminiAdapter = { ...new MockGemini(), name: 'minimal', suggest: (i) => new MockGemini().suggest(i), observe: async () => [] }
 
   it('food report: reporter, verified volunteer and trained supervisor each get a task', async () => {
     await start(minimal)
