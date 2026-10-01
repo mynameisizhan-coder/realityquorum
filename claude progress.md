@@ -59,3 +59,10 @@ Approved plan: Node 24 + Fastify + SQLite (`node:sqlite`), mocked Gemini, demo r
 - `docker build` OK (473 MB). Image has no `.env`/`server/data`, runs as `node`, refuses to start without SESSION_SECRET, HEALTHCHECK healthy.
 - Bug found: `CMD npm start` made npm PID 1; on `docker stop` npm killed node without graceful shutdown (exit 1). Fixed: CMD runs node directly → SIGTERM handled, exit 0 in ~0.4 s.
 - Volume persistence + sessions across restart confirmed. Full browser E2E against the container: 19/19 PASS, exit 0.
+
+### 1 Oct 2026 — fixed startup crash, deployed
+- User started the image with Docker Desktop's Run button (no env) → crash "SESSION_SECRET is required". Changed: if unset, a random 256-bit secret is generated once and kept in `RQ_DATA_DIR/.session-secret`; short user-supplied secrets are still rejected. Verified: plain `docker run` works and sessions survive restart.
+- Local deployment: container `realityquorum`, `--restart unless-stopped`, port 8080, volume `realityquorum-data`, live Gemini key → healthy.
+- Public: new project-only git repo (home-folder repo untouched), `.gitattributes` (LF), videos/reference/.claude excluded, key verified absent from tracked files, stray curl cookie file removed. Pushed to private repo github.com/mynameisizhan-coder/realityquorum (main).
+- `render.yaml` (free Docker web service, Singapore, generated SESSION_SECRET, GEMINI_API_KEY entered in dashboard, rate limit 20/min, demo login on). Render runtime simulated locally (PORT=10000, no disk) → healthy.
+- Remaining: user creates the Render Blueprint (needs their Render login).
