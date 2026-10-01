@@ -66,3 +66,12 @@ Approved plan: Node 24 + Fastify + SQLite (`node:sqlite`), mocked Gemini, demo r
 - Public: new project-only git repo (home-folder repo untouched), `.gitattributes` (LF), videos/reference/.claude excluded, key verified absent from tracked files, stray curl cookie file removed. Pushed to private repo github.com/mynameisizhan-coder/realityquorum (main).
 - `render.yaml` (free Docker web service, Singapore, generated SESSION_SECRET, GEMINI_API_KEY entered in dashboard, rate limit 20/min, demo login on). Render runtime simulated locally (PORT=10000, no disk) → healthy.
 - Remaining: user creates the Render Blueprint (needs their Render login).
+
+### 1 Oct 2026 — live Render verification (https://realityquorum.onrender.com)
+- Running latest commit (new hostel photo + sketch layout in bundle). Health OK, live Gemini (`gemini-3.5-flash-lite`, ~2 s, claims split correctly).
+- HTTPS: http→https 301, HSTS, CSP (+upgrade-insecure-requests), nosniff, frame protection; session cookie HttpOnly + Secure + SameSite=Lax.
+- Access control over the internet: private endpoints 401 anonymously, forged cookie 401, another student 404 on someone else's case, canteen sees alias only, canteen identity reveal 403.
+- Browser E2E against live site: **19/19 PASS** (full primary demo by clicks, mobile layout, no CSP violations, no page errors, no 5xx).
+- Assets: ~361 KB transferred (gzip/br), hashed assets cached immutable.
+- Rate limit active (`x-ratelimit-limit: 20`). Looked bypassed in testing because the tester's ISP rotates public IPv4 addresses (3 IPs in 8 requests, confirmed via Cloudflare trace); limiting is per IP by design.
+- Demo data reset afterwards via operator `/api/demo/reset` → DEMO-0142 Action in progress, DEMO-0143 Evidence review, 0 public updates.
